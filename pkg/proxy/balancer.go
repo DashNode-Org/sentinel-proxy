@@ -12,12 +12,17 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	LatencyWindowSize = 100
+)
+
 type RequestStats struct {
-	AvgLatency    time.Duration `json:"avgLatency"`
-	MaxLatency    time.Duration `json:"maxLatency"`
-	MinLatency    time.Duration `json:"minLatency"`
-	TotalRequests int64         `json:"totalRequests"`
-	TotalErrors   int64         `json:"totalErrors"`
+	AvgLatency     time.Duration   `json:"avgLatency"`
+	MaxLatency     time.Duration   `json:"maxLatency"`
+	MinLatency     time.Duration   `json:"minLatency"`
+	TotalRequests  int64           `json:"totalRequests"`
+	TotalErrors    int64           `json:"totalErrors"`
+	LatencyHistory []time.Duration `json:"-"` // Hidden from JSON
 }
 
 type IntegrityStats struct {
@@ -72,10 +77,6 @@ func NewLoadBalancer(cfg *config.Config) *LoadBalancer {
 		backends: backends,
 	}
 }
-
-// ============================================================================
-// Getters
-// ============================================================================
 
 func (lb *LoadBalancer) GetBackends() []*Backend {
 	lb.mu.RLock()
@@ -133,10 +134,6 @@ func (lb *LoadBalancer) GetPrunedBackend() *Backend {
 	return lb.selectWeighted(candidates)
 }
 
-// ============================================================================
-// Updaters
-// ============================================================================
-
 func (lb *LoadBalancer) UpdateBackendStateByUrl(url string, updateOp func(*Backend)) {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
@@ -161,9 +158,9 @@ func (lb *LoadBalancer) UpdateBackendHealth(url string, healthy bool, blockNumbe
 		if b.RequestStats == nil {
 			b.RequestStats = &RequestStats{}
 		}
-		// Store last latency as 'Avg' for now to keep some data, or just ignore.
-		// User removed simple Latency field.
-		b.RequestStats.AvgLatency = latency
+
+		// Record health check latency as a sample
+		b.RequestStats.recordLatency(latency)
 
 		if !healthy {
 			log.Warn().Str("url", url).Msg("Backend marked unhealthy")
@@ -182,13 +179,14 @@ func (lb *LoadBalancer) UpdateIntegrityScore(url string, score int, missing []in
 	})
 }
 
-func (lb *LoadBalancer) IncSuccessfulRequest(b *Backend, status int) {
+func (lb *LoadBalancer) IncSuccessfulRequest(b *Backend, status int, latency time.Duration) {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
 	if b.RequestStats == nil {
 		b.RequestStats = &RequestStats{}
 	}
 	b.RequestStats.TotalRequests++
+	b.RequestStats.recordLatency(latency)
 	metrics.RecordRequest("proxy", strconv.Itoa(status), b.URL)
 }
 
@@ -203,9 +201,43 @@ func (lb *LoadBalancer) IncErrorRequest(b *Backend) {
 	metrics.RecordRequest("proxy", "502", b.URL)
 }
 
-// ============================================================================
-// Logic & Helpers
-// ============================================================================
+// recordLatency adds a new latency sample and recalculates stats
+func (rs *RequestStats) recordLatency(d time.Duration) {
+	if rs.LatencyHistory == nil {
+		rs.LatencyHistory = make([]time.Duration, 0, LatencyWindowSize)
+	}
+
+	if len(rs.LatencyHistory) < LatencyWindowSize {
+		rs.LatencyHistory = append(rs.LatencyHistory, d)
+	} else {
+		// Simple shift behavior for now (or could use ring buffer index)
+		// For simplicity/readability, let's append and slice.
+		// Optimized: Copy could be faster but N=100 is small.
+		rs.LatencyHistory = append(rs.LatencyHistory[1:], d)
+	}
+
+	// Recalculate
+	var total time.Duration
+	var min, max time.Duration
+	if len(rs.LatencyHistory) > 0 {
+		min = rs.LatencyHistory[0]
+		max = rs.LatencyHistory[0]
+	}
+
+	for _, l := range rs.LatencyHistory {
+		total += l
+		if l < min {
+			min = l
+		}
+		if l > max {
+			max = l
+		}
+	}
+
+	rs.AvgLatency = total / time.Duration(len(rs.LatencyHistory))
+	rs.MinLatency = min
+	rs.MaxLatency = max
+}
 
 func (lb *LoadBalancer) updateMetrics(b *Backend) {
 	metrics.SetBackendHealth(b.URL, b.Healthy)

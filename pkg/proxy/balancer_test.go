@@ -131,20 +131,27 @@ func TestUpdateIntegrityScore_Priority(t *testing.T) {
 }
 
 func TestPriorityCalculation(t *testing.T) {
+	lb := &LoadBalancer{}
+
+	// Case 1: Healthy, low latency
 	b := &Backend{
 		Healthy:        true,
 		RequestStats:   &RequestStats{AvgLatency: 50 * time.Millisecond},
-		IntegrityStats: &IntegrityStats{Score: 100},
+		IntegrityStats: &IntegrityStats{Score: 100}, // Base score
 	}
 
-	lb := &LoadBalancer{}
+	// Initial priority: 100 (base) + 20 (Healthy) + 10 (Latency < 100ms) = 130
 	lb.computePriority(b)
-	base := b.IntegrityStats.Priority
+	base := b.IntegrityStats.Priority // Define base
+	if base != 130.0 {
+		t.Errorf("Expected priority 130.0, got %f", base)
+	}
 
-	// Case 1: High Latency penalty
+	// Update latency to slow
 	b.RequestStats.AvgLatency = 600 * time.Millisecond
 	lb.computePriority(b)
-	assert.Less(t, b.IntegrityStats.Priority, base)
+	// Priority should decrease due to high latency (e.g., 100 + 20 + 0 = 120 or less)
+	assert.Less(t, b.IntegrityStats.Priority, 130.0, "Priority should decrease with high latency")
 
 	// Case 2: Unhealthy penalty
 	b.Healthy = false

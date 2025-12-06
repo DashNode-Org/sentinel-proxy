@@ -95,7 +95,7 @@ func (f *Forwarder) forward(w http.ResponseWriter, r *http.Request, b *Backend) 
 	proxy.ServeHTTP(rw, r)
 
 	// Record the request status (count as success from LB connection perspective)
-	f.lb.IncSuccessfulRequest(b, rw.status)
+	f.lb.IncSuccessfulRequest(b, rw.status, time.Since(start))
 }
 
 type statusResponseWriter struct {
