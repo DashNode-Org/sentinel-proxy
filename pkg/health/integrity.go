@@ -72,14 +72,16 @@ func (c *IntegrityChecker) checkBackendIntegrity(url string) {
 	}
 
 	epochRecords, epochs, oldestSlot := c.processStats(stats)
-	if len(epochs) == 0 {
+	totalEpochs := len(epochs)
+
+	if totalEpochs == 0 {
 		return
 	}
 
 	// Logic to check only last N epochs
 	checkCount := c.cfg.IntegrityCheckEpochs
-	if len(epochs) > checkCount {
-		epochs = epochs[len(epochs)-checkCount:]
+	if totalEpochs > checkCount {
+		epochs = epochs[totalEpochs-checkCount:]
 	}
 
 	missingEpochs := []int64{}
@@ -110,7 +112,12 @@ func (c *IntegrityChecker) checkBackendIntegrity(url string) {
 
 	for _, epoch := range epochs {
 		if epoch >= currentEpoch {
-			continue // Skip current epoch
+			continue
+		}
+
+		// Skip the first epoch if total epochs is less than integrity check epochs
+		if totalEpochs <= c.cfg.IntegrityCheckEpochs && epoch == minEpoch {
+			break
 		}
 
 		records := epochRecords[epoch]
@@ -141,7 +148,7 @@ func (c *IntegrityChecker) checkBackendIntegrity(url string) {
 		b.IntegrityStats.Score = currentAvgIntegrity
 		b.IntegrityStats.MissingEpochs = missingEpochs
 		b.IntegrityStats.InconsistentEpochs = inconsistentEpochs
-		b.EpochStats.TotalEpochs = len(epochs)
+		b.EpochStats.TotalEpochs = totalEpochs
 		b.NodeType = "pruned"
 		if b.EpochStats.TotalEpochs > c.cfg.ArchiverThresholdEpochs {
 			b.NodeType = "archiver"

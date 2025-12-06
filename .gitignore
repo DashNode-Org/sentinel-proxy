@@ -1,5 +1,4 @@
 # Binaries
-# Binaries
 /bin/
 *.exe
 *.exe~
@@ -27,3 +26,4 @@
 
 # OS
 .DS_Store
+tmp/

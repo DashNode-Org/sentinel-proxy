@@ -103,7 +103,6 @@ func TestForwarder_ForwardPruned(t *testing.T) {
 	lb := NewLoadBalancer(cfg)
 
 	// Set node types
-	// Set node types
 	lb.UpdateBackendStateByUrl(archiver.URL, func(b *Backend) {
 		b.NodeType = "archiver"
 		b.Healthy = true
