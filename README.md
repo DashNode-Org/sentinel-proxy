@@ -103,7 +103,7 @@ This roadmap outlines the path from the current integrity-focused prototype to a
 
 - [ ] **Request Coalescing (SingleFlight)**: Implement "Thundering Herd" protection. If multiple users request the same resource (e.g., "latest block") simultaneously, hold them and send only **one** request to the backend, sharing the result with all users.
 - [ ] **Caching Layer (Tiered)**:
-    - **Immutable Data**: Cache finalized blocks (`eth_getBlockByNumber`) and transaction receipts indefinitely (Redis/In-Memory).
+    - **Immutable Data**: Cache finalized blocks (`node_getBlock`) and transaction receipts (`node_getTxReceipt`) indefinitely (Redis/In-Memory).
     - **Mutable Data**: Short TTL caching for volatile data to offload heavy RPC calls from backend nodes.
 
 ### Phase 3: Production Operations
@@ -111,4 +111,4 @@ This roadmap outlines the path from the current integrity-focused prototype to a
 
 - [ ] **Rate Limiting**: Implement Token Bucket algorithm per IP to prevent abuse and ensure fair usage.
 - [ ] **Circuit Breakers**: Automatically eject nodes from the active pool if they exceed error thresholds (distinct from the passive health checker) to fail fast.
-- [ ] **Advanced Metrics**: track latency breakdown by RPC method (e.g., `eth_call` vs `eth_blockNumber`) to pinpoint specific performance bottlenecks.
+- [ ] **Advanced Metrics**: track latency breakdown by RPC method (e.g., `node_getTx` vs `node_getBlockNumber`) to pinpoint specific performance bottlenecks.
