@@ -42,6 +42,7 @@ func (f *Forwarder) ForwardArchiver(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No healthy archiver backend available", http.StatusServiceUnavailable)
 		return
 	}
+	r.URL.Path = "/"
 	f.forward(w, r, backend)
 }
 
@@ -52,6 +53,7 @@ func (f *Forwarder) ForwardPruned(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No healthy pruned backends available", http.StatusServiceUnavailable)
 		return
 	}
+	r.URL.Path = "/"
 	f.forward(w, r, backend)
 }
 
