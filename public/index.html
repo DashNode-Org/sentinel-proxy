@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sentinel Proxy Dashboard</title>
+  <style>
+    :root {
+      --bg-primary: #0f0f14;
+      --bg-secondary: #1a1a24;
+      --bg-card: #22222e;
+      --accent: #6366f1;
+      --accent-glow: rgba(99, 102, 241, 0.3);
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --border: #2d2d3a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      background: linear-gradient(135deg, var(--accent), #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 2rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .status-badge.healthy {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--success);
+    }
+
+    .status-badge.unhealthy {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--error);
+    }
+
+    .status-badge.warning {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--warning);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot.healthy {
+      background: var(--success);
+    }
+
+    .status-dot.unhealthy {
+      background: var(--error);
+    }
+
+    .status-dot.warning {
+      background: var(--warning);
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .card-title {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .card-value {
+      font-size: 2rem;
+      font-weight: 700;
+    }
+
+    .backends-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .backend-item {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1rem;
+    }
+
+    .backend-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .backend-url {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      word-break: break-all;
+    }
+
+    .backend-type {
+      font-size: 0.7rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .backend-type.archiver {
+      background: rgba(99, 102, 241, 0.2);
+      color: var(--accent);
+    }
+
+    .backend-type.pruned {
+      background: rgba(168, 85, 247, 0.2);
+      color: #a855f7;
+    }
+
+    .backend-type.unknown {
+      background: rgba(148, 163, 184, 0.2);
+      color: var(--text-secondary);
+    }
+
+    .backend-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+      font-size: 0.75rem;
+    }
+
+    .stat-label {
+      color: var(--text-secondary);
+    }
+
+    .stat-value {
+      font-weight: 600;
+    }
+
+    .integrity-section {
+      margin-top: 2rem;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .last-check {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+
+    .discrepancy {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 0.75rem;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .discrepancy-epoch {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .discrepancy-issue {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+
+    .metrics-row {
+      display: flex;
+      gap: 2rem;
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .metric {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .metric-label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .metric-value {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .no-issues {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-secondary);
+    }
+
+    .refresh-info {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <header>
+      <h1>🛡️ Sentinel Proxy (Go)</h1>
+      <div id="status-badge" class="status-badge healthy">
+        <span class="status-dot healthy"></span>
+        <span id="status-text">Loading...</span>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Healthy Backends</span>
+        </div>
+        <div class="card-value" id="healthy-count">-</div>
+        <div class="metrics-row">
+          <div class="metric">
+            <span class="metric-label">Total</span>
+            <span class="metric-value" id="total-backends">-</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Uptime</span>
+            <span class="metric-value" id="uptime">-</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Request Metrics</span>
+        </div>
+        <div class="card-value" id="request-count">-</div>
+        <div class="metrics-row">
+          <div class="metric">
+            <span class="metric-label">Errors</span>
+            <span class="metric-value" id="error-count">-</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Error Rate</span>
+            <span class="metric-value" id="error-rate">-</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="section-header">
+      <h2 class="section-title">Backends</h2>
+    </div>
+    <div class="table-container">
+      <table class="backends-table">
+        <thead>
+          <tr>
+            <th style="width: 30px;"></th>
+            <th>Status</th>
+            <th>Type</th>
+            <th>URL</th>
+            <th>Requests</th>
+            <th>Priority</th>
+            <th>Integrity</th>
+            <th>Latency</th>
+            <th>Block</th>
+          </tr>
+        </thead>
+        <tbody id="backends-table-body">
+          <tr>
+            <td colspan="9" style="text-align: center; padding: 2rem;">Loading...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="refresh-info">Auto-refreshes every 5 seconds</p>
+  </div>
+
+  <style>
+    .table-container {
+      overflow-x: auto;
+      border-radius: 0.75rem;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+    }
+
+    .backends-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+
+    .backends-table th {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .backends-table td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    .backends-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .backends-table tbody tr.row-main {
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .backends-table tbody tr.row-main:hover {
+      background: var(--bg-secondary);
+    }
+
+    .backends-table tbody tr.row-details {
+      background: var(--bg-secondary);
+    }
+
+    .backends-table tbody tr.row-details td {
+      padding: 0;
+    }
+
+    .expand-icon {
+      transition: transform 0.2s;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .expand-icon.expanded {
+      transform: rotate(90deg);
+    }
+
+    .row-details-content {
+      padding: 1rem 1.5rem;
+      font-size: 0.8rem;
+    }
+
+    .details-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .detail-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .detail-label {
+      color: var(--text-secondary);
+      font-size: 0.7rem;
+      text-transform: uppercase;
+    }
+
+    .detail-value {
+      font-weight: 500;
+    }
+
+    .epoch-issues {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .epoch-issue-row {
+      margin-bottom: 0.5rem;
+    }
+
+    .url-cell {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .integrity-cell {
+      font-weight: 600;
+    }
+  </style>
+
+  <script>
+    let expandedRows = new Set();
+
+    function formatUptime(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = Math.floor(seconds % 60);
+      if (h > 0) return `${h}h ${m}m`;
+      if (m > 0) return `${m}m ${s}s`;
+      return `${s}s`;
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return 'Never';
+      const date = new Date(dateStr);
+      return date.toLocaleTimeString();
+    }
+
+    function toggleRow(url) {
+      if (expandedRows.has(url)) {
+        expandedRows.delete(url);
+      } else {
+        expandedRows.add(url);
+      }
+      // Re-render will happen on next fetch, or we can manually update
+      const detailRow = document.getElementById(`details-${btoa(url)}`);
+      const icon = document.getElementById(`icon-${btoa(url)}`);
+      if (detailRow) {
+        detailRow.style.display = expandedRows.has(url) ? 'table-row' : 'none';
+      }
+      if (icon) {
+        icon.classList.toggle('expanded', expandedRows.has(url));
+      }
+    }
+
+    function getIntegrityColor(score) {
+      if (score >= 90) return 'var(--success)';
+      if (score >= 50) return 'var(--warning)';
+      return 'var(--error)';
+    }
+
+    function getStatusBadge(healthy) {
+      const cls = healthy ? 'healthy' : 'unhealthy';
+      return `<span class="status-badge ${cls}"><span class="status-dot ${cls}"></span>${healthy ? 'Healthy' : 'Unhealthy'}</span>`;
+    }
+
+    function getTypeBadge(type) {
+      return `<span class="backend-type ${type}">${type}</span>`;
+    }
+
+    async function fetchHealth() {
+      try {
+        const res = await fetch('/health');
+        const data = await res.json();
+
+        // Update status badge
+        const badge = document.getElementById('status-badge');
+        const statusText = document.getElementById('status-text');
+        const statusDot = badge.querySelector('.status-dot');
+
+        if (badge && data.status) {
+          badge.className = `status-badge ${data.status}`;
+          if (statusDot) statusDot.className = `status-dot ${data.status}`;
+          statusText.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+        }
+
+        // Update cards
+        const safeSetText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+        // Normalize backend data to flat structure for UI
+        const normalizedBackends = (data.backends || []).map(b => {
+          const iStats = b.integrityStats || {};
+          const rStats = b.requestStats || {};
+          const eStats = b.epochStats || {};
+
+          return {
+            ...b,
+            integrityScore: iStats.integrityScore,
+            missingEpochs: iStats.missingEpochs,
+            inconsistentEpochs: iStats.inconsistentEpochs,
+            integrityStatus: iStats.integrityStatus,
+            priority: iStats.priority, // Override usage of root priority if it existed
+
+            requestCount: rStats.totalRequests,
+            totalErrors: rStats.totalErrors,
+            // Convert nanoseconds to milliseconds if AvgLatency is provided (Go Duration is ns)
+            latencyMs: rStats.avgLatency ? Math.round(rStats.avgLatency / 1000000) : 0,
+
+            currentEpoch: eStats.currentEpoch,
+            totalEpochs: eStats.totalEpochs,
+            oldestSlot: eStats.oldestSlot
+          };
+        });
+
+        safeSetText('healthy-count', normalizedBackends.filter(b => b.healthy).length);
+        safeSetText('total-backends', normalizedBackends.length);
+        safeSetText('uptime', formatUptime(data.uptime));
+
+        if (data.metrics) {
+          safeSetText('request-count', (data.metrics.totalRequests || 0).toLocaleString());
+          safeSetText('error-count', (data.metrics.totalErrors || 0).toLocaleString());
+          safeSetText('error-rate', ((data.metrics.errorRate || 0) * 100).toFixed(2) + '%');
+        }
+
+        // Update backends table
+        const tableBody = document.getElementById('backends-table-body');
+        tableBody.innerHTML = normalizedBackends.map(b => {
+          const rowId = btoa(b.url);
+          const isExpanded = expandedRows.has(b.url);
+          const hasIssues = (b.missingEpochs?.length > 0 || b.inconsistentEpochs?.length > 0);
+
+          // Safety defaults
+          const latency = b.latencyMs || 0;
+          const integrityDiff = 0;
+
+          return `
+            <tr class="row-main" onclick="toggleRow('${b.url}')" style="border-left: 3px solid ${getIntegrityColor(b.integrityScore || 0)}">
+              <td><span id="icon-${rowId}" class="expand-icon ${isExpanded ? 'expanded' : ''}">▶</span></td>
+              <td>${getStatusBadge(b.healthy)}</td>
+              <td>${getTypeBadge(b.nodeType || 'unknown')}</td>
+              <td class="url-cell" title="${b.url}">${b.url}</td>
+              <td>${(b.requestCount || 0).toLocaleString()}</td>
+              <td>${(b.priority || 0).toFixed(1)}</td>
+              <td class="integrity-cell" style="color: ${getIntegrityColor(b.integrityScore || 0)}">${b.integrityScore || 0}%</td>
+              <td>${latency ? latency + 'ms' : '-'}</td>
+              <td>${b.blockNumber ?? '-'}</td>
+            </tr>
+            <tr id="details-${rowId}" class="row-details" style="display: ${isExpanded ? 'table-row' : 'none'}">
+              <td colspan="9">
+                <div class="row-details-content">
+                  <div class="details-grid">
+                    <div class="detail-item">
+                      <span class="detail-label">Oldest Slot</span>
+                      <span class="detail-value">${b.oldestSlot ?? '-'}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">Current Epoch</span>
+                      <span class="detail-value">${b.currentEpoch ?? '-'}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">Integrity Status</span>
+                      <span class="detail-value">${(b.integrityStatus || 'unknown').toUpperCase()}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">Total Epochs</span>
+                      <span class="detail-value">${b.totalEpochs || 0}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">Missing Epochs</span>
+                      <span class="detail-value" style="color: ${b.missingEpochs?.length > 0 ? 'var(--error)' : 'inherit'}">${b.missingEpochs?.length || 0}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">Inconsistent Epochs</span>
+                      <span class="detail-value" style="color: ${b.inconsistentEpochs?.length > 0 ? 'var(--warning)' : 'inherit'}">${b.inconsistentEpochs?.length || 0}</span>
+                    </div>
+                  </div>
+                  ${hasIssues ? `
+                    <div class="epoch-issues">
+                      ${b.missingEpochs?.length > 0 ? `
+                        <div class="epoch-issue-row" style="color: var(--error);">
+                          🚫 Missing: ${b.missingEpochs.slice(0, 20).join(', ')}${b.missingEpochs.length > 20 ? '...' : ''}
+                        </div>
+                      ` : ''}
+                      ${b.inconsistentEpochs?.length > 0 ? `
+                        <div class="epoch-issue-row" style="color: var(--warning);">
+                          ⚠️ Inconsistent: ${b.inconsistentEpochs.slice(0, 20).join(', ')}${b.inconsistentEpochs.length > 20 ? '...' : ''}
+                        </div>
+                      ` : ''}
+                    </div>
+                  ` : ''}
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+      } catch (err) {
+        console.error('Failed to fetch health:', err);
+      }
+    }
+
+    fetchHealth();
+    setInterval(fetchHealth, 5000);
+  </script>
+</body>
+
+</html>

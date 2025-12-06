@@ -1,0 +1,24 @@
+services:
+  sentinel-proxy-go:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # image: sentinel-proxy-go:latest # Uncomment if you want to use local image directly without rebuilding context
+    restart: unless-stopped
+    ports:
+      - "${PROXY_PORT:-8080}:8080" # Map host port to container port
+    env_file:
+      - .env
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      # Overrides can go here too
+    deploy:
+      resources:
+        limits:
+          memory: 200M
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
