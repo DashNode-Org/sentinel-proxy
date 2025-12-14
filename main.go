@@ -30,7 +30,14 @@ func main() {
 
 	// Setup logging
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339})
+	consoleWriter := zerolog.ConsoleWriter{
+		Out:        os.Stderr,
+		TimeFormat: time.RFC3339,
+		FormatMessage: func(i interface{}) string {
+			return "[SENTINEL-PROXY] " + i.(string)
+		},
+	}
+	log.Logger = log.Output(consoleWriter)
 
 	level, err := zerolog.ParseLevel(cfg.LogLevel)
 	if err == nil {

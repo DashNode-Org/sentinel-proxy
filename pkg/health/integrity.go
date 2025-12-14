@@ -137,6 +137,8 @@ func (c *IntegrityChecker) checkBackendIntegrity(url string) {
 		currentAvgIntegrity = currentTotalIntegrity / currentTotalIntegrityCount
 	}
 
+	currentAvgIntegrity = currentAvgIntegrity - (len(missingEpochs) * 4)
+
 	c.lb.UpdateBackendStateByUrl(url, func(b *proxy.Backend) {
 		if b.IntegrityStats == nil {
 			b.IntegrityStats = &proxy.IntegrityStats{}
